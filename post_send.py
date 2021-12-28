@@ -3,11 +3,11 @@ import random
 from fake_useragent import UserAgent
 
 
-def create(category='Консультация и обучение', name='test', priority="medium", number_kab="120",
+def create(category='Отказ оборудования или связи (включая интернет)', name='Бот', priority="medium", number_kab="120",
            number_phone='8777000888',
            korpus='Главный корпус',
-           theme='Проблема', msg='Что то случилось'):
-    if 'Отказ оборудования или связи' in category:
+           theme='Был перезапуск бота', msg='Перезапуск бота'):
+    if 'Отказ оборудования или связи (включая интернет)' in category:
         category_send = 15
     elif 'Учетные записи, роли, логины и пароли' in category:
         category_send = 4
@@ -51,4 +51,5 @@ def send(datas):
     print(send.status_code)
 
 
-create()
+if __name__ == '__main__':
+    create()

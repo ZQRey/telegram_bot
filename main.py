@@ -80,7 +80,12 @@ type_markup.add('Консультация и обучение')
 # Отмена
 back_markup = telebot.types.ReplyKeyboardMarkup(True, True)
 back_markup.add('Отмена')
-
+# reply_markup для выбора корпуса
+korp_markup = telebot.types.ReplyKeyboardMarkup(True, True)
+korp_markup.add('Главный корпус')
+korp_markup.add('Детский корпус')
+korp_markup.add('Дневной стационар')
+korp_markup.add('Отмена')
 
 # Отработка заявки
 # work_yes = types.InlineKeyboardButton(text='Взята в работу', callback_data='Взята')
@@ -88,13 +93,16 @@ back_markup.add('Отмена')
 # work_status = types.InlineKeyboardMarkup()
 # work_status.row(work_yes, work_no)
 
-
 class User:
     def __init__(self, first_name):
-        self.first_name = first_name
-        self.number = ''
-        self.profesion = ''
-        self.otdelenie = ''
+        self.category = 'Отказ оборудования или связи (включая интернет)'
+        self.name = first_name
+        self.priority = 'medium'
+        self.number_kab = '-'
+        self.number_phone = '-'
+        self.korpus = 'Главный корпус'
+        self.theme = '-'
+        self.msg = '-'
 
 
 # Обработка команд
@@ -127,15 +135,15 @@ def menu_item(message):
         existsUser = cursor.fetchone()
         # Если нету, то добавить в БД
         if (existsUser == None):
-            msg = bot.send_message(chat_id, 'Пожалуйста представьтесь')
+            msg = bot.send_message(chat_id, 'Пожалуйста введите ваше ФИО')
             bot.register_next_step_handler(msg, reg_name)
         else:
 
             msg = bot.send_message(chat_id, 'Здравствуйте {0}. Опишите в чем будет заключаться работа\n'
                                             'Для отмены операции напишите отмена или нажмите соответствующее меню'
                                    .format(existsUser[1]), reply_markup=type_markup)
-            bot.register_next_step_handler(msg, type_work)
-    # Разработать модуль для просмотра заявки!!!
+            bot.register_next_step_handler(msg, number_cab)
+    # Разработать модуль для просмотра заявки!!! admin_id на данный момент нет
     elif message.text.lower() == 'просмотреть заявки':
         try:
             # Подключение к БД и сбор информаци о заявках пользователя
@@ -170,7 +178,8 @@ def menu_item(message):
         msg = bot.send_message(chat_id, 'Выполнение отправки сообщения от админа')
         bot.register_next_step_handler(msg, admin_send_message)
     else:
-        bot.send_message(chat_id, 'Повторите запрос. Напишите небходимый вам пункт меню или выберите его.')
+        bot.send_message(chat_id, 'Повторите запрос. Напишите небходимый вам пункт меню или выберите его.',
+                         reply_markup=gl_markup)
 
 
 # Методы (функции)
@@ -195,53 +204,109 @@ def registration(message):
     try:
         user_id = message.from_user.id
         user = user_data[user_id]
-        user.number = message.text
+        user.number_phone = message.text
         number = int(message.text[1:])
         user_data[number] = User(message.text)
         sql = "INSERT INTO regs (first_name, number_phone,  user_id) VALUES (%s, %s, %s)"
-        val = (user.first_name, message.text, message.chat.id)
+        val = (user.name, message.text, message.chat.id)
         cursor.execute(sql, val)
         mydb.commit()
         msg = bot.send_message(message.chat.id, 'Вы зарегистрированы! \nВыберите пункт меню.', reply_markup=type_markup)
-        bot.register_next_step_handler(msg, type_work)
+        bot.register_next_step_handler(msg, number_cab)
 
     except Exception as e:
         write_file('Ошибка регистрации: функция финальной регистрации вывела ошибку ' + str(e))
         print(e)
-        bot.reply_to(message, 'Ошибка регистрации: не верно введен номер телефона')
+        bot.reply_to(message, 'Ошибка регистрации: не верно введен номер телефона', reply_markup=gl_markup)
 
 
 # --------------------------------------------------END----------------------------------------------------------------#
 # -----------------------------------------Отправка_заявки_на_выполнение_работ-----------------------------------------#
-# Выбор типа работ
-def type_work(message):
+# Прием категории и ввод номера кабинета
+def number_cab(message):
     try:
+        if message.text.lower() == 'отмена':
+            bot.send_message(message.chat.id, 'Возврат в меню', reply_markup=gl_markup)
         user_id = message.from_user.id
         user = user_data[user_id]
-        user.type_work = message.text
-        msg = bot.send_message(message.chat.id, 'Опишите вашу проблему '
+        user.category = message.text
+        msg = bot.send_message(message.chat.id, 'Введите номер кабинета '
                                                 'или нажмите кнопку отмены', reply_markup=back_markup)
-        bot.register_next_step_handler(msg, description_work)
+        bot.register_next_step_handler(msg, corpus_otd)
+    except Exception as e:
+        write_file('Ошибка модуля: номер кабинета' + str(e))
+        bot.send_message(message.chat.id, 'Ошибка модуля: номер кабинета ' + str(e) +
+                         "\nСвяжитесь с техподдержкой и передайте ошибку", reply_markup=gl_markup)
+
+# Прием номера кабинета и выбор корпуса
+def corpus_otd(message):
+    try:
+        if message.text.lower() == 'отмена':
+            bot.send_message(message.chat.id, 'Возврат в меню', reply_markup=gl_markup)
+        user_id = message.from_user.id
+        user = user_data[user_id]
+        user.number_kab = message.text
+        msg = bot.send_message(message.chat.id, 'Выберите корпус '
+                                                'или нажмите кнопку отмены', reply_markup=korp_markup) # reply_markup для выбора корпуса
+        bot.register_next_step_handler(msg, theme_zay)
     except Exception as e:
         write_file('Ошибка модуля: Тип работ' + str(e))
         bot.send_message(message.chat.id, 'Ошибка модуля: Тип работ ' + str(e) +
-                         "\nСвяжитесь с техподдержкой и передайте ошибку")
+                         "\nСвяжитесь с техподдержкой и передайте ошибку", reply_markup=gl_markup)
+
+# Прием номера корпуса и ввод темы заявки
+def theme_zay(message):
+    try:
+        if message.text.lower() == 'отмена':
+            bot.send_message(message.chat.id, 'Возврат в меню', reply_markup=gl_markup)
+        user_id = message.from_user.id
+        user = user_data[user_id]
+        user.korpus = message.text
+        msg = bot.send_message(message.chat.id, 'Введите тему заявки '
+                                                'или нажмите кнопку отмены', reply_markup=back_markup)
+        bot.register_next_step_handler(msg, description)
+    except Exception as e:
+        write_file('Ошибка модуля: номер кабинета' + str(e))
+        bot.send_message(message.chat.id, 'Ошибка модуля: номер кабинета ' + str(e) +
+                         "\nСвяжитесь с техподдержкой и передайте ошибку", reply_markup=gl_markup)
+
+# Прием номера корпуса и ввод темы заявки
+def description(message):
+    try:
+        if message.text.lower() == 'отмена':
+            bot.send_message(message.chat.id, 'Возврат в меню', reply_markup=gl_markup)
+        user_id = message.from_user.id
+        user = user_data[user_id]
+        user.theme = message.text
+        msg = bot.send_message(message.chat.id, 'Опишите вашу проблему '
+                                                'или нажмите кнопку отмены', reply_markup=back_markup)
+        bot.register_next_step_handler(msg, send_zayvka)
+    except Exception as e:
+        write_file('Ошибка модуля: номер кабинета' + str(e))
+        bot.send_message(message.chat.id, 'Ошибка модуля: номер кабинета ' + str(e) +
+                         "\nСвяжитесь с техподдержкой и передайте ошибку", reply_markup=gl_markup)
 
 
 # Описание проблемы
-def description_work(message):
+def send_zayvka(message):
+    sql = f"SELECT * FROM regs WHERE user_id = {message.chat.id}"
+    cursor.execute(sql)
+    existsUser = cursor.fetchone()
     try:
         if message.text.lower() == 'отмена':
             bot.send_message(message.chat.id, 'Возврат в меню', reply_markup=gl_markup)
         else:
-            # прописать POST или get отправку или же сделать отдельным модулем
-            pass
 
+            user_id = message.from_user.id
+            user = user_data[user_id]
+            user.msg = message.text
+            post_send.create(category=user.category, name=existsUser[1], priority=user.priority, number_kab=user.number_kab,
+                             number_phone=existsUser[2], korpus=user.korpus, theme=user.theme, msg=user.msg)
+            bot.reply_to(message.chat.id, 'Ваша заявка принята под номером {0}')
+            bot.reply_to(existsUser[0], 'Ваша заявка принята под номером {0}')
     except Exception as e:
         write_file('Ошибка отправки заявки: функция вывела ошибку ' + str(e))
-        bot.reply_to(message, 'Ошибка отправки заявки: функция вывела ошибку\n' + str(e) +
-                     "\nСвяжитесь с техподдержкой и передайте ошибку")
-
+        bot.send_message(message, 'Ваша заявка успешно создана, ожидайте', reply_markup=gl_markup)
 
 # Выбор действия с заявкой
 # @bot.callback_query_handler(func=lambda call:True)
