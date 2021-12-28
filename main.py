@@ -7,6 +7,7 @@ from mysql.connector import errorcode
 import sys
 import datetime
 from datetime import datetime
+import post_send
 from telebot import types
 
 # Подключение к боту
@@ -29,6 +30,7 @@ def write_file(text):
     log_file = open('err.txt', 'a')
     log_file.write(str(now) + text + '\n')
     print(text)
+
 
 # Работа с базой данных
 ########################################################################################################################
@@ -78,6 +80,8 @@ type_markup.add('Консультация и обучение')
 # Отмена
 back_markup = telebot.types.ReplyKeyboardMarkup(True, True)
 back_markup.add('Отмена')
+
+
 # Отработка заявки
 # work_yes = types.InlineKeyboardButton(text='Взята в работу', callback_data='Взята')
 # work_no = types.InlineKeyboardButton(text='Отказано', callback_data='Отказано')
@@ -131,7 +135,8 @@ def menu_item(message):
                                             'Для отмены операции напишите отмена или нажмите соответствующее меню'
                                    .format(existsUser[1]), reply_markup=type_markup)
             bot.register_next_step_handler(msg, type_work)
-    elif message.text.lower() == '📄просмотреть заявки':
+    # Разработать модуль для просмотра заявки!!!
+    elif message.text.lower() == 'просмотреть заявки':
         try:
             # Подключение к БД и сбор информаци о заявках пользователя
             user_id = message.from_user.id
@@ -164,22 +169,6 @@ def menu_item(message):
     elif message.text.lower() == 'send_user':
         msg = bot.send_message(chat_id, 'Выполнение отправки сообщения от админа')
         bot.register_next_step_handler(msg, admin_send_message)
-    elif message.text.lower() == 'написать отзыв':
-        msg = bot.send_message(chat_id, 'Сейчас вы можете написать отзыв о работе компании')
-        bot.register_next_step_handler(msg, send_in_jurnal)
-    elif message.text == 'Посмотреть отзывы':
-        try:
-            sql = "SELECT * FROM jurnal"
-            cursor.execute(sql)
-            text = cursor.fetchall()
-
-            # Сделать проверку на пустую строку
-            for rez in text:
-                if rez[0] is not None:
-                    bot.send_message(message.chat.id,
-                                     'Номер отзыва: {0}\nТекст отзыва: {1}'.format(str(rez[0]), str(rez[1])))
-        except Exception as e:
-            write_file('Ошибка модуля просмотра отзывов ' + str(e))
     else:
         bot.send_message(chat_id, 'Повторите запрос. Напишите небходимый вам пункт меню или выберите его.')
 
@@ -197,7 +186,9 @@ def reg_name(message):
     except Exception as e:
         write_file('Ошибка регистрации: проблема с функцией регистрации имени ' + str(e))
         print(e)
-        bot.reply_to(message, 'Ошибка регистрации: проблема с функцией регистрации имени')
+        bot.reply_to(message, 'Ошибка регистрации: проблема с функцией регистрации имени' + str(e) +
+                     "\nСвяжитесь с техподдержкой и передайте ошибку")
+
 
 # Сбор конечных данных и запись в БД
 def registration(message):
@@ -228,75 +219,33 @@ def type_work(message):
         user_id = message.from_user.id
         user = user_data[user_id]
         user.type_work = message.text
-        msg = bot.send_message(message.chat.id, 'Введите описание работ '
+        msg = bot.send_message(message.chat.id, 'Опишите вашу проблему '
                                                 'или нажмите кнопку отмены', reply_markup=back_markup)
         bot.register_next_step_handler(msg, description_work)
     except Exception as e:
         write_file('Ошибка модуля: Тип работ' + str(e))
-        bot.send_message(message.chat.id, 'Ошибка модуля: Тип работ')
+        bot.send_message(message.chat.id, 'Ошибка модуля: Тип работ ' + str(e) +
+                         "\nСвяжитесь с техподдержкой и передайте ошибку")
 
 
-# Создание заявки
+# Описание проблемы
 def description_work(message):
     try:
         if message.text.lower() == 'отмена':
-            bot.send_message(message.chat.id, reply_markup=gl_markup)
+            bot.send_message(message.chat.id, 'Возврат в меню', reply_markup=gl_markup)
         else:
-            user_id = message.from_user.id
-            user = user_data[user_id]
-            date_send_msg = datetime.now()
-            # Вставка информации в БД
-            sql = "INSERT INTO work_list (description, telegram_user_id, type_work, date_send_msg) VALUES (%s, %s, %s, %s)"
-            val = (message.text, user_id, user.type_work, date_send_msg)
-            cursor.execute(sql, val)
-            mydb.commit()
-
-            # Выбор имени пользователя из БД
-            sql = "SELECT first_name FROM regs WHERE user_id = {0}".format(user_id)
-            cursor.execute(sql)
-            existsUser = cursor.fetchone()
-
-            # Выбор информации о номере заявки из БД
-            sql = 'SELECT id FROM work_list WHERE telegram_user_id = {0}'.format(user_id)
-            cursor.execute(sql)
-            number_desc = cursor.fetchall()
-
-            # Выбор информации о номере заявки из БД
-            sql = 'SELECT number_phone FROM regs WHERE user_id = {0}'.format(user_id)
-            cursor.execute(sql)
-            number_phone = cursor.fetchall()
-
-            # Вывод информации об успешно созданой заявке и отправка админу (Возможно дает сбой)
-            bot.send_message(config.admin_id, text=('Новая заявка {0}\nДата отправки: {6}'
-                                                    '\nПользователь: {1}\nНомер телефона: {2}'
-                                                    '\nЧат с пользователем: @{3}\nВид работ: {4}'
-                                                    '\nОписание работ: {5}').format(str(number_desc[-1])[1:3],
-                                                                                    existsUser[0],
-                                                                                    str(number_phone[0]),
-                                                                                    message.from_user.username,
-                                                                                    user.type_work,
-                                                                                    message.text,
-                                                                                    datetime.today()))
-            #            bot.send_message(config.moder_id, text=('Новая заявка {0}\n Пользователь: {1}\nНомер телефона: {2}'
-            #                                                    '\nЧат с пользователем: @{3}\nВид работ: {4}'
-            #                                                    '\nОписание работ: {5}').format(str(number_desc[-1])[1:3],
-            #                                                                                    existsUser[0],
-            #                                                                                    str(number_phone[0]),
-            #                                                                                    message.from_user.username,
-            #                                                                                    user.type_work,
-            #                                                                                    message.text))
-            bot.send_message(message.chat.id,
-                             'Ваша заявка под номером #{0} успешно зарегистрирована.\n'
-                             .format(str(number_desc[-1])[1:3]),
-                             reply_markup=gl_markup)  # Возможно нужно добавить номер заявки
+            # прописать POST или get отправку или же сделать отдельным модулем
+            pass
 
     except Exception as e:
-        write_file('Ошибка отправки заявки: функция вывела ошибку' + str(e))
-        bot.reply_to(message, 'Ошибка отправки заявки: функция вывела ошибку\n' + str(e))
+        write_file('Ошибка отправки заявки: функция вывела ошибку ' + str(e))
+        bot.reply_to(message, 'Ошибка отправки заявки: функция вывела ошибку\n' + str(e) +
+                     "\nСвяжитесь с техподдержкой и передайте ошибку")
+
 
 # Выбор действия с заявкой
-#@bot.callback_query_handler(func=lambda call:True)
-#def call_status_work(call):
+# @bot.callback_query_handler(func=lambda call:True)
+# def call_status_work(call):
 #    if call.data == 'Взята':
 #
 # ------------------------------------------------------END------------------------------------------------------------#
@@ -313,7 +262,8 @@ def admin_send_message(message):
             print(temp)
     except Exception as e:
         write_file('Ошибка модуля: Отправка сообщения от админа ' + str(e))
-        bot.send_message(message.chat.id, 'Ошибка модуля: Отправка сообщения от админа')
+        bot.send_message(message.chat.id, 'Ошибка модуля: Отправка сообщения от админа' +
+                         "\nСвяжитесь с техподдержкой и передайте ошибку")
         print(str(e))
 
 
