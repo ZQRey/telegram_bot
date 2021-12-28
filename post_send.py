@@ -1,7 +1,7 @@
 import requests
 import random
+from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
-
 
 def create(category='Отказ оборудования или связи (включая интернет)', name='Бот', priority="medium", number_kab="120",
            number_phone='8777000888',
@@ -39,15 +39,16 @@ def create(category='Отказ оборудования или связи (вк
         'hy': '',
     }
 
-    send(data)
-
-
-def send(datas):
     ua = UserAgent()
     header = {'User-Agent': ua.chrome}
     url = 'http://hesk.gp1.loc/submit_ticket.php?submit=1'
-    send = requests.post(url, data=datas, headers=header)
-    print(send.status_code)
+    send = requests.post(url, data=data, headers=header).text
+    soup = BeautifulSoup(send, 'lxml')
+    block = soup.find('div').findAll('span')[2].text
+    print(block)
+    print("Произошла отправка заявки")
+    return block
+
 
 
 if __name__ == '__main__':
