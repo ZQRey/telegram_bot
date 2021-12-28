@@ -302,8 +302,7 @@ def send_zayvka(message):
             user.msg = message.text
             post_send.create(category=user.category, name=existsUser[1], priority=user.priority, number_kab=user.number_kab,
                              number_phone=existsUser[2], korpus=user.korpus, theme=user.theme, msg=user.msg)
-            bot.reply_to(message.chat.id, 'Ваша заявка принята под номером {0}')
-            bot.reply_to(existsUser[0], 'Ваша заявка принята под номером {0}')
+            bot.send_message(existsUser[0], 'Ваша заявка принята под номером {0}')
     except Exception as e:
         write_file('Ошибка отправки заявки: функция вывела ошибку ' + str(e))
         bot.send_message(message, 'Ваша заявка успешно создана, ожидайте', reply_markup=gl_markup)

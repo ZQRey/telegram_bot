@@ -24,7 +24,6 @@ def create(category='Отказ оборудования или связи (вк
 
     data = {
         'name': name,
-        'email': 'email@mail.ru',
         'priority': priority,
         'custom1': number_kab,
         'custom3': number_phone,
