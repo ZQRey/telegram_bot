@@ -39,10 +39,10 @@ def create(category='Отказ оборудования или связи (вк
         'hy': '',
     }
 
-    ua = UserAgent()
-    header = {'User-Agent': ua.chrome}
+#    ua = UserAgent()
+#    header = {'User-Agent': ua.chrome}
     url = 'http://hesk.gp1.loc/submit_ticket.php?submit=1'
-    send = requests.post(url, data=data, headers=header).text
+    send = requests.post(url, data=data).text
     soup = BeautifulSoup(send, 'lxml')
     block = soup.find('div').findAll('span')[2].text
     print(block)

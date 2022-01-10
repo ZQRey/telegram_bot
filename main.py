@@ -1,14 +1,12 @@
 import telebot
 import config
-import mysql.connector
 import logging
-import mysql
-from mysql.connector import errorcode
 import sys
 import datetime
 from datetime import datetime
 import post_send
 import get_send
+import connection_db
 
 # Подключение к боту
 bot = telebot.TeleBot(config.TOKEN)
@@ -27,37 +25,14 @@ ch.setFormatter(formatter)
 
 def write_file(text):
     now = datetime.now()
-    log_file = open('err.txt', 'a')
+    log_file = open('log.txt', 'a')
     log_file.write(str(now) + text + '\n')
     print(text)
 
 
 # Работа с базой данных
 ########################################################################################################################
-try:
-    mydb = mysql.connector.connect(
-        host='localhost',
-        user='root',
-        passwd=config.passwd_mysql,
-        port='3306',
-        database='db_polka',
-    )
-except mysql.connector.Error as err:
-    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-        write_file('Ошибка подключения к БД: Проблема с логином или паролем')
-        sys.exit()
-    elif err.errno == errorcode.ER_BAD_DB_ERROR:
-        write_file('БД не найдена')
-        sys.exit()
-    else:
-        write_file('Ошибка БД: {0}'.format(err))
-        print('Ошибка БД: {0}'.format(err))
-        sys.exit()
 
-write_file('Подключение к базе данных выполнено ' + str(mydb))
-print('Подключение к базе данных выполнено ' + str(mydb))
-
-cursor = mydb.cursor()
 
 # Работа с ботом
 ########################################################################################################################
@@ -132,9 +107,8 @@ def menu_item(message):
         bot.send_message(chat_id, text=config.info, reply_markup=gl_markup)
     elif message.text.lower() == 'отправить заявку':
         # Проверка пользователя зареган или нет
-        sql = f"SELECT * FROM regs WHERE user_id = {chat_id}"
-        cursor.execute(sql)
-        existsUser = cursor.fetchone()
+        cursor = connection_db.connection_db()
+        existsUser = connection_db.search_user(cursor[0], message.chat.id)
         # Если нету, то добавить в БД
         if (existsUser == None):
             msg = bot.send_message(chat_id, 'Пожалуйста введите ваше ФИО')
@@ -146,39 +120,39 @@ def menu_item(message):
                                    .format(existsUser[1]), reply_markup=type_markup)
             bot.register_next_step_handler(msg, number_cab)
     # Разработать модуль для просмотра заявки!!! admin_id на данный момент нет
-    elif message.text.lower() == 'просмотреть заявки':
-        try:
-            # Подключение к БД и сбор информаци о заявках пользователя
-            user_id = message.from_user.id
-            if user_id == config.admin_id:
-                sql = "SELECT * FROM work_list"
-                cursor.execute(sql)
-                description = cursor.fetchall()
-                mydb.commit()
-
-                # Сделать проверку на пустую строку
-                for rez in description:
-                    bot.send_message(message.chat.id,
-                                     'Номер заявки: {0}\nДата отправки: {2}\nВид работ: {3}'
-                                     '\nТекст заявки: {1}\nСтатус заявки: {4}'.format(rez[0], str(rez[1]), rez[4],
-                                                                                      str(rez[3]), str(rez[5])))
-            else:
-                sql = "SELECT * FROM work_list WHERE telegram_user_id = {0}".format(user_id)
-                cursor.execute(sql)
-                description = cursor.fetchall()
-                mydb.commit()
-
-                # Сделать проверку на пустую строку
-                for rez in description:
-                    bot.send_message(message.chat.id,
-                                     'Номер заявки: {0}\nДата отправки: {2}\nВид работ: {3}'
-                                     '\nТекст заявки: {1}'.format(rez[0], str(rez[1]), rez[4], str(rez[3])))
-        except Exception as e:
-            write_file('Ошибка показа заявок: функция вывела ошибку ' + str(e))
-            bot.reply_to(message, 'Ошибка показа заявок: функция вывела ошибку\n' + str(e))
+    #    elif message.text.lower() == 'просмотреть заявки':
+    #        try:
+    #            # Подключение к БД и сбор информаци о заявках пользователя
+    #            user_id = message.from_user.id
+    #            if user_id == config.admin_id:
+    #                sql = "SELECT * FROM work_list"
+    #                cursor.execute(sql)
+    #                description = cursor.fetchall()
+    #                mydb.commit()
+    #
+    #                # Сделать проверку на пустую строку
+    #                for rez in description:
+    #                    bot.send_message(message.chat.id,
+    #                                     'Номер заявки: {0}\nДата отправки: {2}\nВид работ: {3}'
+    #                                     '\nТекст заявки: {1}\nСтатус заявки: {4}'.format(rez[0], str(rez[1]), rez[4],
+    #                                                                                      str(rez[3]), str(rez[5])))
+    #            else:
+    #                sql = "SELECT * FROM work_list WHERE telegram_user_id = {0}".format(user_id)
+    #                cursor.execute(sql)
+    #                description = cursor.fetchall()
+    #                mydb.commit()
+    #
+    #                # Сделать проверку на пустую строку
+    #                for rez in description:
+    #                    bot.send_message(message.chat.id,
+    #                                     'Номер заявки: {0}\nДата отправки: {2}\nВид работ: {3}'
+    #                                     '\nТекст заявки: {1}'.format(rez[0], str(rez[1]), rez[4], str(rez[3])))
+    #        except Exception as e:
+    #            write_file('Ошибка показа заявок: функция вывела ошибку ' + str(e))
+    #            bot.reply_to(message, 'Ошибка показа заявок: функция вывела ошибку\n' + str(e))
     elif message.text.lower() == 'информация о заявке':
         msg = bot.send_message(chat_id, 'Сбор информации о заявке, введите номер заявки.\n'
-                                        'Формат: ХХХХ-ХХХХ-ХХХХ')
+                                        'Формат: ХХХ-ХХХ-ХХХХ')
         bot.register_next_step_handler(msg, info_request)
     else:
         bot.send_message(chat_id, 'Повторите запрос. Напишите небходимый вам пункт меню или выберите его.',
@@ -210,10 +184,9 @@ def registration(message):
         user.number_phone = message.text
         number = int(message.text[1:])
         user_data[number] = User(message.text)
-        sql = "INSERT INTO regs (first_name, number_phone,  user_id) VALUES (%s, %s, %s)"
-        val = (user.name, message.text, message.chat.id)
-        cursor.execute(sql, val)
-        mydb.commit()
+        cursor = connection_db.connection_db()
+        reg = connection_db.reg_user(cursor[0], cursor[1], user.name, message.text, message.chat.id)
+        reg()
         msg = bot.send_message(message.chat.id, 'Вы зарегистрированы! \nВыберите пункт меню.', reply_markup=type_markup)
         bot.register_next_step_handler(msg, number_cab)
 
@@ -296,9 +269,8 @@ def description(message):
 
 # Описание проблемы
 def send_zayvka(message):
-    sql = f"SELECT * FROM regs WHERE user_id = {message.chat.id}"
-    cursor.execute(sql)
-    existsUser = cursor.fetchone()
+    cursor = connection_db.connection_db()
+    existsUser = connection_db.user_data(cursor[0], message.chat.id)
     try:
         if message.text.lower() == 'отмена':
             bot.send_message(message.chat.id, 'Возврат в меню', reply_markup=gl_markup)
@@ -325,20 +297,20 @@ def send_zayvka(message):
 # ------------------------------------------------------END------------------------------------------------------------#
 # -----------------------------------------------Отправка сообщений от админа пользователям----------------------------#
 
-def admin_send_message(message):
-    try:
-        sql = "SELECT user_id FROM regs"
-        cursor.execute(sql)
-        description = cursor.fetchall()
-        mydb.commit()
-        for temp in description:
-            bot.send_message(chat_id=temp, text=message.text)
-            print(temp)
-    except Exception as e:
-        write_file('Ошибка модуля: Отправка сообщения от админа ' + str(e))
-        bot.send_message(message.chat.id, 'Ошибка модуля: Отправка сообщения от админа' +
-                         "\nСвяжитесь с техподдержкой и передайте ошибку")
-        print(str(e))
+#   def admin_send_message(message):
+#       try:
+#           sql = "SELECT user_id FROM regs"
+#           cursor.execute(sql)
+#           description = cursor.fetchall()
+#           mydb.commit()
+#           for temp in description:
+#               bot.send_message(chat_id=temp, text=message.text)
+#               print(temp)
+#       except Exception as e:
+#           write_file('Ошибка модуля: Отправка сообщения от админа ' + str(e))
+#           bot.send_message(message.chat.id, 'Ошибка модуля: Отправка сообщения от админа' +
+#                            "\nСвяжитесь с техподдержкой и передайте ошибку")
+#           print(str(e))
 
 
 # ---------------------------------------------Информация о заявке-----------------------------------------------------#
@@ -357,22 +329,22 @@ def temp(message):
 
 def info_request(message):
     try:
-        sql = f"SELECT * FROM regs WHERE user_id = {message.chat.id}"
-        cursor.execute(sql)
-        existsUser = cursor.fetchone()
+        cursor = connection_db.connection_db()
+        existsUser = connection_db.request(cursor[0], message.chat.id)
         if message.text.lower() == 'отмена':
             bot.send_message(message.chat.id, 'Возврат в меню', reply_markup=gl_markup)
         if len(message.text) == 12:
             data = get_send.get_send(message.text)
             bot.send_message(existsUser[0], "ID: {0}\n"
-                                        "Статус заявки: {1}\n"
-                                        "Дата создания: {2}\n"
-                                        "Дата обновления: {3}\n"
-                                        "Последний оставивший сообщение: {4}".format(data.pop('ID'), data.pop('Status'),
-                                                                                     data.pop('Create'),
-                                                                                     data.pop('Update'),
-                                                                                     data.pop('Last_send')),
-                         reply_markup=gl_markup)
+                                            "Статус заявки: {1}\n"
+                                            "Дата создания: {2}\n"
+                                            "Дата обновления: {3}\n"
+                                            "Последний оставивший сообщение: {4}".format(data.pop('ID'),
+                                                                                         data.pop('Status'),
+                                                                                         data.pop('Create'),
+                                                                                         data.pop('Update'),
+                                                                                         data.pop('Last_send')),
+                             reply_markup=gl_markup)
         else:
             bot.send_message(existsUser[0], 'Вы ввели не правильный номер заявки', reply_markup=gl_markup)
     except Exception as e:
