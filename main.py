@@ -27,7 +27,12 @@ def write_file(text):
     now = datetime.now()
     log_file = open('log.txt', 'a')
     log_file.write(str(now) + text + '\n')
-    print(text)
+
+
+def write_msg(text):
+    now = datetime.now()
+    log_file = open('msg.txt', 'a')
+    log_file.write(str(now) + ' ' + text + '\n')
 
 
 # Работа с базой данных
@@ -51,7 +56,7 @@ gl_markup.row('Описание')
 # Типы выполняемых работ
 type_markup = telebot.types.ReplyKeyboardMarkup(True, True)
 type_markup.add('Отказ оборудования или связи (включая интернет)')
-type_markup.add('Учетные записи, логины и пароли')
+type_markup.add('Учетные записи, роли, логины и пароли')
 type_markup.add('Консультация и обучение')
 # Отмена
 back_markup = telebot.types.ReplyKeyboardMarkup(True, True)
@@ -61,7 +66,6 @@ korp_markup = telebot.types.ReplyKeyboardMarkup(True, True)
 korp_markup.add('Главный корпус')
 korp_markup.add('Детский корпус')
 korp_markup.add('Дневной стационар')
-korp_markup.add('Отмена')
 
 
 # Отработка заявки
@@ -81,14 +85,30 @@ class User:
         self.theme = '-'
         self.msg = '-'
 
+def type_day():
+    time_now = datetime.now().hour
+    if 19 <= time_now <= 23:
+        temp = 'Добрый вечер'
+    elif 0 <= time_now <= 5:
+        temp = 'Доброй ночи'
+    elif 6 <= time_now <= 11:
+        temp = 'Доброе утро'
+    elif 12 <= time_now <= 18:
+        temp = "Добрый день"
+    else:
+        temp = 'Здравствуйте'
+    return temp
 
 # Обработка команд
 @bot.message_handler(commands=['start'])
 def start_message(message):
     print('Пользователь с именем: {0.first_name} никнеймом: {1.username} активировал бота'.format(message.from_user,
                                                                                                   message.from_user))
-    bot.send_message(message.chat.id, "Выберете пункт меню для продолжения работы с ботом.\n"
-                                      "Для информации о работе с ботом выберете пункт «Описание».",
+    write_msg('Пользователь с именем: {0.first_name} никнеймом: {1.username} активировал бота'
+              .format(message.from_user, message.from_user))
+    temp = type_day()
+    bot.send_message(message.chat.id, f"{temp}! Выберете пункт меню для продолжения работы с ботом.\n"
+                                      "Для получения краткой информации о работе с ботом выберете пункт «Описание».",
                      reply_markup=gl_markup)
 
 
@@ -100,6 +120,7 @@ def help_message(message):
 @bot.message_handler(content_types=['text'])
 def menu_item(message):
     print('Пользователь {0.first_name} отправил сообщение {1}'.format(message.from_user, message.text))
+    write_msg('Пользователь {0.first_name} отправил сообщение {1}'.format(message.from_user, message.text))
     chat_id = message.chat.id
     user_id = message.from_user.id
     user_data[user_id] = User(message.text)
@@ -114,42 +135,10 @@ def menu_item(message):
             msg = bot.send_message(chat_id, 'Пожалуйста введите ваше ФИО')
             bot.register_next_step_handler(msg, reg_name)
         else:
-
-            msg = bot.send_message(chat_id, 'Здравствуйте {0}. Опишите в чем будет заключаться работа\n'
-                                            'Для отмены операции напишите отмена или нажмите соответствующее меню'
-                                   .format(existsUser[1]), reply_markup=type_markup)
+            temp = type_day()
+            msg = bot.send_message(chat_id, '{1} {0}! Выберите категорию вашей проблемы\n'
+                                   .format(existsUser[1], temp), reply_markup=type_markup)
             bot.register_next_step_handler(msg, number_cab)
-    # Разработать модуль для просмотра заявки!!! admin_id на данный момент нет
-    #    elif message.text.lower() == 'просмотреть заявки':
-    #        try:
-    #            # Подключение к БД и сбор информаци о заявках пользователя
-    #            user_id = message.from_user.id
-    #            if user_id == config.admin_id:
-    #                sql = "SELECT * FROM work_list"
-    #                cursor.execute(sql)
-    #                description = cursor.fetchall()
-    #                mydb.commit()
-    #
-    #                # Сделать проверку на пустую строку
-    #                for rez in description:
-    #                    bot.send_message(message.chat.id,
-    #                                     'Номер заявки: {0}\nДата отправки: {2}\nВид работ: {3}'
-    #                                     '\nТекст заявки: {1}\nСтатус заявки: {4}'.format(rez[0], str(rez[1]), rez[4],
-    #                                                                                      str(rez[3]), str(rez[5])))
-    #            else:
-    #                sql = "SELECT * FROM work_list WHERE telegram_user_id = {0}".format(user_id)
-    #                cursor.execute(sql)
-    #                description = cursor.fetchall()
-    #                mydb.commit()
-    #
-    #                # Сделать проверку на пустую строку
-    #                for rez in description:
-    #                    bot.send_message(message.chat.id,
-    #                                     'Номер заявки: {0}\nДата отправки: {2}\nВид работ: {3}'
-    #                                     '\nТекст заявки: {1}'.format(rez[0], str(rez[1]), rez[4], str(rez[3])))
-    #        except Exception as e:
-    #            write_file('Ошибка показа заявок: функция вывела ошибку ' + str(e))
-    #            bot.reply_to(message, 'Ошибка показа заявок: функция вывела ошибку\n' + str(e))
     elif message.text.lower() == 'информация о заявке':
         msg = bot.send_message(chat_id, 'Сбор информации о заявке, введите номер заявки.\n'
                                         'Формат: ХХХ-ХХХ-ХХХХ')
@@ -158,6 +147,8 @@ def menu_item(message):
         bot.send_message(chat_id, 'Повторите запрос. Напишите небходимый вам пункт меню или выберите его.',
                          reply_markup=gl_markup)
 
+
+########################################################################################################################
 
 # Методы (функции)
 ########################################################################################################################
@@ -185,8 +176,7 @@ def registration(message):
         number = int(message.text[1:])
         user_data[number] = User(message.text)
         cursor = connection_db.connection_db()
-        reg = connection_db.reg_user(cursor[0], cursor[1], user.name, message.text, message.chat.id)
-        reg()
+        connection_db.reg_user(cursor[0], cursor[1], user.name, message.text, message.chat.id)
         msg = bot.send_message(message.chat.id, 'Вы зарегистрированы! \nВыберите пункт меню.', reply_markup=type_markup)
         bot.register_next_step_handler(msg, number_cab)
 
@@ -206,8 +196,7 @@ def number_cab(message):
         user_id = message.from_user.id
         user = user_data[user_id]
         user.category = message.text
-        msg = bot.send_message(message.chat.id, 'Введите номер кабинета '
-                                                'или нажмите кнопку отмены', reply_markup=back_markup)
+        msg = bot.send_message(message.chat.id, 'Введите номер кабинета ', reply_markup=None)
         bot.register_next_step_handler(msg, corpus_otd)
     except Exception as e:
         write_file('Ошибка модуля: номер кабинета' + str(e))
@@ -223,8 +212,7 @@ def corpus_otd(message):
         user_id = message.from_user.id
         user = user_data[user_id]
         user.number_kab = message.text
-        msg = bot.send_message(message.chat.id, 'Выберите корпус '
-                                                'или нажмите кнопку отмены',
+        msg = bot.send_message(message.chat.id, 'Выберите корпус ',
                                reply_markup=korp_markup)  # reply_markup для выбора корпуса
         bot.register_next_step_handler(msg, theme_zay)
     except Exception as e:
@@ -241,8 +229,7 @@ def theme_zay(message):
         user_id = message.from_user.id
         user = user_data[user_id]
         user.korpus = message.text
-        msg = bot.send_message(message.chat.id, 'Введите тему заявки '
-                                                'или нажмите кнопку отмены', reply_markup=back_markup)
+        msg = bot.send_message(message.chat.id, 'Введите тему заявки ', reply_markup=None)
         bot.register_next_step_handler(msg, description)
     except Exception as e:
         write_file('Ошибка модуля: номер кабинета' + str(e))
@@ -258,8 +245,7 @@ def description(message):
         user_id = message.from_user.id
         user = user_data[user_id]
         user.theme = message.text
-        msg = bot.send_message(message.chat.id, 'Опишите вашу проблему '
-                                                'или нажмите кнопку отмены', reply_markup=back_markup)
+        msg = bot.send_message(message.chat.id, 'Опишите вашу проблему ', reply_markup=None)
         bot.register_next_step_handler(msg, send_zayvka)
     except Exception as e:
         write_file('Ошибка модуля: номер кабинета' + str(e))
@@ -284,16 +270,13 @@ def send_zayvka(message):
                                               number_phone=existsUser[2], korpus=user.korpus, theme=user.theme,
                                               msg=user.msg)
             bot.send_message(existsUser[0], f'Ваша заявка принята под номером {number_zayavki}', reply_markup=gl_markup)
+            write_msg(f' Пользователь с id {message.chat.id}, именем {existsUser[1]} и номером телефона {existsUser[2]}'
+                      f' отправил оставил заявку: Тема: {user.theme} Описание: {user.msg}')
     except Exception as e:
         write_file('Ошибка отправки заявки: функция вывела ошибку ' + str(e))
         bot.send_message(message, 'Ваша заявка успешно создана, ожидайте', reply_markup=gl_markup)
 
 
-# Выбор действия с заявкой
-# @bot.callback_query_handler(func=lambda call:True)
-# def call_status_work(call):
-#    if call.data == 'Взята':
-#
 # ------------------------------------------------------END------------------------------------------------------------#
 # -----------------------------------------------Отправка сообщений от админа пользователям----------------------------#
 
@@ -319,7 +302,7 @@ def temp(message):
         if message.text.lower() == 'отмена':
             bot.send_message(message.chat.id, 'Возврат в меню', reply_markup=gl_markup)
         msg = bot.send_message(message.chat.id, 'Введите номер заявки в формате "ХХХХ-ХХХХ-ХХХХ"',
-                               reply_markup=back_markup)
+                               reply_markup=None)
         bot.register_next_step_handler(msg, info_request)
     except Exception as e:
         write_file('Ошибка модуля: номер кабинета' + str(e))
@@ -347,8 +330,9 @@ def info_request(message):
                              reply_markup=gl_markup)
         else:
             bot.send_message(existsUser[0], 'Вы ввели не правильный номер заявки', reply_markup=gl_markup)
-    except Exception as e:
-        write_file("Ошибка отправки информации " + str(e))
+    except Exception:
+        bot.send_message(message.chat.id, 'Данные не отображаются. Возможно ваша заявка была решена.'
+                         , reply_markup=gl_markup)
 
 
 ########################################################################################################################

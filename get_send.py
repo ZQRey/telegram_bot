@@ -17,4 +17,8 @@ def get_send(request_number):
         'Update': block[18].text,
         'Last_send': block[21].text,
     }
+    print(data)
     return data
+
+if __name__ == '__main__':
+    get_send('7YY-DUN-9D75')
