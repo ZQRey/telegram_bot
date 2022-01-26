@@ -322,7 +322,8 @@ def info_request(message):
                                             "Статус заявки: {1}\n"
                                             "Дата создания: {2}\n"
                                             "Дата обновления: {3}\n"
-                                            "Последний оставивший сообщение: {4}".format(data.pop('ID'),
+                                            "Последний оставивший сообщение: {4}\n"
+                                            "Последнее сообщение в заявке".format(data.pop('ID'),
                                                                                          data.pop('Status'),
                                                                                          data.pop('Create'),
                                                                                          data.pop('Update'),
