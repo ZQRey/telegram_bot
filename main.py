@@ -6,7 +6,9 @@ import datetime
 from datetime import datetime
 import post_send
 import get_send
+import pogoda
 import connection_db
+import closed_request_user
 
 # Подключение к боту
 bot = telebot.TeleBot(config.TOKEN)
@@ -46,6 +48,7 @@ write_file('Бот запущен!')
 
 # Словарь работы с данными пользователя
 user_data = {}
+request_close = {}
 
 # Кнопки
 # Главное меню
@@ -66,7 +69,9 @@ korp_markup = telebot.types.ReplyKeyboardMarkup(True, True)
 korp_markup.add('Главный корпус')
 korp_markup.add('Детский корпус')
 korp_markup.add('Дневной стационар')
-
+# Админ_модер кнопки
+adm_mod_markup = telebot.types.ReplyKeyboardMarkup(True, True)
+adm_mod_markup.add('Закрыть заявку')
 
 # Отработка заявки
 # work_yes = types.InlineKeyboardButton(text='Взята в работу', callback_data='Взята')
@@ -85,6 +90,7 @@ class User:
         self.theme = '-'
         self.msg = '-'
 
+
 def type_day():
     time_now = datetime.now().hour
     if 19 <= time_now <= 23:
@@ -99,6 +105,7 @@ def type_day():
         temp = 'Здравствуйте'
     return temp
 
+
 # Обработка команд
 @bot.message_handler(commands=['start'])
 def start_message(message):
@@ -107,14 +114,53 @@ def start_message(message):
     write_msg('Пользователь с именем: {0.first_name} никнеймом: {1.username} активировал бота'
               .format(message.from_user, message.from_user))
     temp = type_day()
-    bot.send_message(message.chat.id, f"{temp}! Выберете пункт меню для продолжения работы с ботом.\n"
-                                      "Для получения краткой информации о работе с ботом выберете пункт «Описание».",
-                     reply_markup=gl_markup)
+    bot.send_message(message.chat.id, f"{temp}! Выберете <b>пункт меню</b> для продолжения работы с ботом.\n"
+                                      "Для получения краткой информации о работе с ботом выберете пункт <b>«Описание»."
+                                      "</b>",
+                     reply_markup=gl_markup, parse_mode='HTML')
 
 
 @bot.message_handler(commands=['help'])
 def help_message(message):
-    bot.send_message(message.chat.id, "Help message")
+    bot.send_message(message.chat.id, config.info)
+
+@bot.message_handler(commands=['погода'])
+def pogoda_message(message):
+    result = pogoda.get_send()
+    try:
+        msg = f'<b>Результат запроса:</b>\n' \
+              f'<b>Сейчас:</b> {result.pop("now")} ℃\n' \
+              f'<b>Ощущается:</b> {result.pop("felt")} ℃\n' \
+              f'<b>Описание:</b>\n{result.pop("msg")}'
+        bot.send_message(message.chat.id, msg, parse_mode='HTML')
+    except:
+        bot.send_message(message.chat.id, result)
+
+@bot.message_handler(commands=['админ', 'модер'])
+def admin_moder_message(message):
+    msg = bot.send_message(message.chat.id, '<b>Модуль для администратора и модераторов</b>\n'
+                                      'Выберите пункт меню что необходимо выполнить.', reply_markup=adm_mod_markup,
+                     parse_mode='HTML')
+    bot.register_next_step_handler(msg, request_id_closed)
+
+def request_id_closed(message):
+    id = bot.send_message(message.chat.id, 'Напишите ID заявки')
+    bot.register_next_step_handler(id, request_login_closed)
+
+def request_login_closed(message):
+    request_close['id'] = message.text
+    login = bot.send_message(message.chat.id, 'Напишите ваш логин')
+    bot.register_next_step_handler(login, request_paswd_closed)
+
+def request_paswd_closed(message):
+    request_close['login'] = message.text
+    password = bot.send_message(message.chat.id, 'Напишите ваш пароль')
+    bot.register_next_step_handler(password, closed_request)
+
+def closed_request(message):
+    request_close['password'] = message.text
+    request = closed_request_user.close_request(request_close['id'], request_close['login'], request_close['password'])
+    bot.send_message(message.chat.id, request, reply_markup=gl_markup)
 
 
 @bot.message_handler(content_types=['text'])
@@ -132,17 +178,19 @@ def menu_item(message):
         existsUser = connection_db.search_user(cursor[0], message.chat.id)
         # Если нету, то добавить в БД
         if (existsUser == None):
-            msg = bot.send_message(chat_id, 'Пожалуйста введите ваше ФИО')
+            msg = bot.send_message(chat_id, 'Пожалуйста введите ваше <b>ФИО</b>', parse_mode='HTML')
             bot.register_next_step_handler(msg, reg_name)
         else:
             temp = type_day()
-            msg = bot.send_message(chat_id, '{1} {0}! Выберите категорию вашей проблемы\n'
-                                   .format(existsUser[1], temp), reply_markup=type_markup)
+            msg = bot.send_message(chat_id, '<b>{1} {0}!</b> Выберите категорию вашей проблемы\n'
+                                   .format(existsUser[1], temp), reply_markup=type_markup, parse_mode='HTML')
             bot.register_next_step_handler(msg, number_cab)
     elif message.text.lower() == 'информация о заявке':
         msg = bot.send_message(chat_id, 'Сбор информации о заявке, введите номер заявки.\n'
                                         'Формат: ХХХ-ХХХ-ХХХХ')
         bot.register_next_step_handler(msg, info_request)
+    elif message.text.lower() == 'погода':
+        pogoda_message(message)
     else:
         bot.send_message(chat_id, 'Повторите запрос. Напишите небходимый вам пункт меню или выберите его.',
                          reply_markup=gl_markup)
@@ -158,7 +206,7 @@ def reg_name(message):
     try:
         user_id = message.from_user.id
         user_data[user_id] = User(message.text)
-        msg = bot.send_message(message.chat.id, 'Введите ваш номер телефона')
+        msg = bot.send_message(message.chat.id, 'Введите ваш <b>номер телефона</b>', parse_mode='HTML')
         bot.register_next_step_handler(msg, registration)
     except Exception as e:
         write_file('Ошибка регистрации: проблема с функцией регистрации имени ' + str(e))
@@ -269,7 +317,9 @@ def send_zayvka(message):
                                               number_kab=user.number_kab,
                                               number_phone=existsUser[2], korpus=user.korpus, theme=user.theme,
                                               msg=user.msg)
-            bot.send_message(existsUser[0], f'Ваша заявка принята под номером {number_zayavki}', reply_markup=gl_markup)
+            bot.send_message(existsUser[0], f'<b>Ваша заявка принята под номером</b> {number_zayavki}',
+                             reply_markup=gl_markup,
+                             parse_mode='HTML')
             write_msg(f' Пользователь с id {message.chat.id}, именем {existsUser[1]} и номером телефона {existsUser[2]}'
                       f' отправил оставил заявку: Тема: {user.theme} Описание: {user.msg}')
     except Exception as e:
@@ -318,17 +368,18 @@ def info_request(message):
             bot.send_message(message.chat.id, 'Возврат в меню', reply_markup=gl_markup)
         if len(message.text) == 12:
             data = get_send.get_send(message.text)
-            bot.send_message(existsUser[0], "ID: {0}\n"
-                                            "Статус заявки: {1}\n"
-                                            "Дата создания: {2}\n"
-                                            "Дата обновления: {3}\n"
-                                            "Последний оставивший сообщение: {4}\n"
-                                            "Последнее сообщение в заявке".format(data.pop('ID'),
-                                                                                         data.pop('Status'),
-                                                                                         data.pop('Create'),
-                                                                                         data.pop('Update'),
-                                                                                         data.pop('Last_send')),
-                             reply_markup=gl_markup)
+            bot.send_message(existsUser[0], "<b>ID:</b> {0}\n"
+                                            "<b>Статус заявки:</b> {1}\n"
+                                            "<b>Дата создания:</b> {2}\n"
+                                            "<b>Дата обновления:</b> {3}\n"
+                                            "<b>Последний оставивший сообщение:</b> {4}\n"
+                                            "<b>Последнее сообщение в заявке:</b> {5}".format(data.pop('ID'),
+                                                                                              data.pop('Status'),
+                                                                                              data.pop('Create'),
+                                                                                              data.pop('Update'),
+                                                                                              data.pop('Last_send'),
+                                                                                              data.pop('answer')),
+                             reply_markup=gl_markup, parse_mode='HTML')
         else:
             bot.send_message(existsUser[0], 'Вы ввели не правильный номер заявки', reply_markup=gl_markup)
     except Exception:
