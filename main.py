@@ -73,6 +73,7 @@ korp_markup.add('Дневной стационар')
 adm_mod_markup = telebot.types.ReplyKeyboardMarkup(True, True)
 adm_mod_markup.add('Закрыть заявку')
 
+
 # Отработка заявки
 # work_yes = types.InlineKeyboardButton(text='Взята в работу', callback_data='Взята')
 # work_no = types.InlineKeyboardButton(text='Отказано', callback_data='Отказано')
@@ -124,6 +125,7 @@ def start_message(message):
 def help_message(message):
     bot.send_message(message.chat.id, config.info)
 
+
 @bot.message_handler(commands=['погода'])
 def pogoda_message(message):
     result = pogoda.get_send()
@@ -136,31 +138,47 @@ def pogoda_message(message):
     except:
         bot.send_message(message.chat.id, result)
 
+
 @bot.message_handler(commands=['админ', 'модер'])
 def admin_moder_message(message):
     msg = bot.send_message(message.chat.id, '<b>Модуль для администратора и модераторов</b>\n'
-                                      'Выберите пункт меню что необходимо выполнить.', reply_markup=adm_mod_markup,
-                     parse_mode='HTML')
+                                            'Выберите пункт меню что необходимо выполнить.',
+                           reply_markup=adm_mod_markup,
+                           parse_mode='HTML')
     bot.register_next_step_handler(msg, request_id_closed)
+
 
 def request_id_closed(message):
     id = bot.send_message(message.chat.id, 'Напишите ID заявки')
     bot.register_next_step_handler(id, request_login_closed)
 
+
 def request_login_closed(message):
-    request_close['id'] = message.text
-    login = bot.send_message(message.chat.id, 'Напишите ваш логин')
-    bot.register_next_step_handler(login, request_paswd_closed)
+    try:
+        request_close['id'] = message.text
+        login = bot.send_message(message.chat.id, 'Напишите ваш логин')
+        bot.register_next_step_handler(login, request_paswd_closed)
+    except:
+        bot.send_message('Ваш запрос не верен')
+
 
 def request_paswd_closed(message):
-    request_close['login'] = message.text
-    password = bot.send_message(message.chat.id, 'Напишите ваш пароль')
-    bot.register_next_step_handler(password, closed_request)
+    try:
+        request_close['login'] = message.text
+        password = bot.send_message(message.chat.id, 'Напишите ваш пароль')
+        bot.register_next_step_handler(password, closed_request)
+    except:
+        bot.send_message('Ваш запрос не верен')
+
 
 def closed_request(message):
-    request_close['password'] = message.text
-    request = closed_request_user.close_request(request_close['id'], request_close['login'], request_close['password'])
-    bot.send_message(message.chat.id, request, reply_markup=gl_markup)
+    try:
+        request_close['password'] = message.text
+        request = closed_request_user.close_request(request_close['id'], request_close['login'],
+                                                    request_close['password'])
+        bot.send_message(message.chat.id, request, reply_markup=gl_markup)
+    except:
+        bot.send_message('Ваш запрос не верен')
 
 
 @bot.message_handler(content_types=['text'])

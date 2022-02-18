@@ -18,6 +18,10 @@ def close_request(request_track, login, password):
             'a': 'do_login',
         }
 
+        if len(request_track) < 12 or len(request_track) > 12:
+            return 'Не верный номер заявки'
+
+
         ua = UserAgent()
         header = {'User-Agent': ua.random}
         url_auth = 'http://hesk.gp1.loc/admin/index.php'
@@ -36,11 +40,12 @@ def close_request(request_track, login, password):
         send_request = session.post(url_close_request, data=data_send).text
         session.close()
         return "Заявка была закрыта"
-    except Exception as e:
-        return "Ошибка закрытия заявки: " + e
+    except:
+        return 'Ошибка закрытия заявки'
 # http://hesk.gp1.loc/admin/change_status.php?s=3&track=29Z-VV7-E145&token=12e7ff72af283b3ba13935ae1a65f985400298d9
 
 
 if __name__ == '__main__':
-    close_request('', '', '')
+    res = close_request('', '', '')
+    print(res)
 
