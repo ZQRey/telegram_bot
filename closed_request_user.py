@@ -41,7 +41,7 @@ def close_request(request_track, login, password):
         session.close()
         return "Заявка была закрыта"
     except:
-        return 'Ошибка закрытия заявки'
+        return 'Ошибка закрытия заявки: Проверьте правильность логина и пароля'
 # http://hesk.gp1.loc/admin/change_status.php?s=3&track=29Z-VV7-E145&token=12e7ff72af283b3ba13935ae1a65f985400298d9
 
 
