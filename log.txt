@@ -1,0 +1,7 @@
+2022-03-16 12:38:01.963809Бот запущен!
+2022-03-16 12:38:51.156224Подключение к базе данных выполнено <mysql.connector.connection_cext.CMySQLConnection object at 0x000001ADCD8F3FA0>
+2022-03-16 12:42:54.161904Бот запущен!
+2022-03-16 12:43:09.835318Подключение к базе данных выполнено <mysql.connector.connection_cext.CMySQLConnection object at 0x00000267243C1BB0>
+2022-03-16 12:43:21.300399Подключение к базе данных выполнено <mysql.connector.connection_cext.CMySQLConnection object at 0x00000267243C1BB0>
+2022-03-16 12:44:19.895061Бот запущен!
+2022-03-16 12:44:23.460519Бот запущен!

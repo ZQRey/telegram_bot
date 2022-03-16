@@ -1,7 +1,7 @@
 '''
        Конфигурационный файл
 '''
-TOKEN = '5047200608:AAGJwIzeUub4jNG3beDF6lWoZWlCDCXpf5w'
+TOKEN = '5195729442:AAGuoRdQ6tfiXGuGi1BJCSLcQnsRjLX2Bww'
 passwd_mysql = 'Qaz123!@#'
 
 info = '' \
