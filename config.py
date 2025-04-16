@@ -1,8 +1,8 @@
 '''
        Конфигурационный файл
 '''
-TOKEN = '5195729442:AAGuoRdQ6tfiXGuGi1BJCSLcQnsRjLX2Bww'
-passwd_mysql = 'Qaz123!@#'
+TOKEN = '************'
+passwd_mysql = '******'
 
 info = '' \
        'Что бы начать работу с ботом необходимо выбрать команду "Отправить заявку"\n' \
